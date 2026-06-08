@@ -368,10 +368,42 @@ function CoastWatch() {
         <main className="cw-main">
           <div ref={mapEl} className="cw-map" />
           <div className="cw-legend">
-            <h5>Pollution severity</h5>
-            <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#059669" }} /> Low (1–2)</div>
-            <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#d97706" }} /> Moderate (3)</div>
-            <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#dc2626" }} /> High (4–5)</div>
+            <div className="cw-legend-group">
+              <h5>Pollution reports</h5>
+              <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#059669" }} /> Low severity (1–2)</div>
+              <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#d97706" }} /> Moderate (3)</div>
+              <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#dc2626" }} /> High (4–5)</div>
+            </div>
+            {enabled.airQuality && (
+              <div className="cw-legend-group">
+                <h5>Air quality index (AirNow)</h5>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#00e400" }} /> Good 0–50</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#ffff00" }} /> Moderate 51–100</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#ff7e00" }} /> USG 101–150</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#ff0000" }} /> Unhealthy 151–200</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#8f3f97" }} /> Very Unhealthy 201+</div>
+              </div>
+            )}
+            {enabled.beachGrades && (
+              <div className="cw-legend-group">
+                <h5>Beach water grade (Heal the Bay)</h5>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#059669" }} /> A</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#65a30d" }} /> B</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#eab308" }} /> C</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#ea580c" }} /> D</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#dc2626" }} /> F</div>
+              </div>
+            )}
+            {enabled.calEnviroScreen && (
+              <div className="cw-legend-group">
+                <h5>CalEnviroScreen percentile</h5>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#bbf7d0" }} /> 0–25</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#facc15" }} /> 25–50</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#d97706" }} /> 50–75</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#dc2626" }} /> 75–90</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#7f1d1d" }} /> 90+</div>
+              </div>
+            )}
           </div>
         </main>
 
