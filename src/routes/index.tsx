@@ -1,10 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import type * as LeafletNS from "leaflet";
 
-// Leaflet is dynamically imported in useEffect to avoid SSR (window is undefined).
-type L = typeof LeafletNS;
+// Leaflet is loaded from CDN at runtime (browser only) to avoid SSR issues.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LeafletGlobal = any;
 
+declare global {
+  interface Window {
+    L?: LeafletGlobal;
+  }
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -14,6 +19,12 @@ export const Route = createFileRoute("/")({
         name: "description",
         content:
           "Crowdsourced coastal pollution tracker. Drop pins, report debris, and track community impact.",
+      },
+    ],
+    links: [
+      {
+        rel: "stylesheet",
+        href: "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
       },
     ],
   }),
@@ -122,12 +133,35 @@ function formatRelative(date: Date) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+// Load Leaflet from CDN once, return the global L.
+function loadLeaflet(): Promise<LeafletGlobal> {
+  if (typeof window === "undefined") return Promise.reject(new Error("SSR"));
+  if (window.L) return Promise.resolve(window.L);
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[data-leaflet="1"]',
+    );
+    if (existing) {
+      existing.addEventListener("load", () => resolve(window.L));
+      existing.addEventListener("error", () => reject(new Error("Leaflet load failed")));
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    s.async = true;
+    s.dataset.leaflet = "1";
+    s.onload = () => resolve(window.L);
+    s.onerror = () => reject(new Error("Leaflet load failed"));
+    document.head.appendChild(s);
+  });
+}
+
 // ---------- Component ----------
 function CoastWatch() {
   const mapRef = useRef<HTMLDivElement | null>(null);
-  const leafletMap = useRef<LeafletNS.Map | null>(null);
-  const markerLayer = useRef<LeafletNS.LayerGroup | null>(null);
-  const LRef = useRef<L | null>(null);
+  const leafletMap = useRef<LeafletGlobal>(null);
+  const markerLayer = useRef<LeafletGlobal>(null);
+  const LRef = useRef<LeafletGlobal>(null);
 
   const [reports, setReports] = useState<Report[]>([]);
   const [mapReady, setMapReady] = useState(false);
@@ -151,55 +185,39 @@ function CoastWatch() {
     if (!window.localStorage.getItem(STORAGE_KEY)) saveReports(initial);
   }, []);
 
-  // Initialize Leaflet (dynamic import to avoid SSR window references)
+  // Initialize Leaflet from CDN
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const [{ default: L }, _css] = await Promise.all([
-        import("leaflet"),
-        import("leaflet/dist/leaflet.css"),
-      ]);
-      const [icon2x, icon, shadow] = await Promise.all([
-        import("leaflet/dist/images/marker-icon-2x.png"),
-        import("leaflet/dist/images/marker-icon.png"),
-        import("leaflet/dist/images/marker-shadow.png"),
-      ]);
-      // Patch default icon paths (Vite doesn't auto-resolve them).
-      // @ts-expect-error _getIconUrl is internal
-      delete L.Icon.Default.prototype._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: icon2x.default,
-        iconUrl: icon.default,
-        shadowUrl: shadow.default,
-      });
-
-      if (cancelled || !mapRef.current || leafletMap.current) return;
-      LRef.current = L;
-      const map = L.map(mapRef.current).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }).addTo(map);
-      markerLayer.current = L.layerGroup().addTo(map);
-      map.on("click", (e: LeafletNS.LeafletMouseEvent) => {
-        setLat(e.latlng.lat.toFixed(5));
-        setLng(e.latlng.lng.toFixed(5));
-        setModalOpen(true);
-        setStatus({
-          msg: "Coordinates set from map click. Fill in the rest!",
-          kind: "success",
+    loadLeaflet()
+      .then((L) => {
+        if (cancelled || !mapRef.current || leafletMap.current) return;
+        LRef.current = L;
+        const map = L.map(mapRef.current).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        }).addTo(map);
+        markerLayer.current = L.layerGroup().addTo(map);
+        map.on("click", (e: { latlng: { lat: number; lng: number } }) => {
+          setLat(e.latlng.lat.toFixed(5));
+          setLng(e.latlng.lng.toFixed(5));
+          setModalOpen(true);
+          setStatus({
+            msg: "Coordinates set from map click. Fill in the rest!",
+            kind: "success",
+          });
         });
-      });
-      leafletMap.current = map;
-      setMapReady(true);
-    })();
+        leafletMap.current = map;
+        setMapReady(true);
+      })
+      .catch((err) => console.warn("Leaflet failed to load", err));
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // Re-render markers when reports change (after map is ready)
+  // Re-render markers when reports change
   useEffect(() => {
     const L = LRef.current;
     if (!L || !markerLayer.current) return;
@@ -210,7 +228,6 @@ function CoastWatch() {
         .bindPopup(popupHtml(r));
     });
   }, [reports, mapReady]);
-
 
   // ESC closes modal
   useEffect(() => {
@@ -243,9 +260,13 @@ function CoastWatch() {
         setLat(pos.coords.latitude.toFixed(5));
         setLng(pos.coords.longitude.toFixed(5));
         setStatus({ msg: "Location captured ✅", kind: "success" });
-        leafletMap.current?.setView([pos.coords.latitude, pos.coords.longitude], 14);
+        leafletMap.current?.setView(
+          [pos.coords.latitude, pos.coords.longitude],
+          14,
+        );
       },
-      (err) => setStatus({ msg: `Could not get location: ${err.message}`, kind: "error" }),
+      (err) =>
+        setStatus({ msg: `Could not get location: ${err.message}`, kind: "error" }),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
     );
   }
@@ -266,7 +287,10 @@ function CoastWatch() {
     if (Number.isNaN(latN) || latN < -90 || latN > 90)
       return setStatus({ msg: "Latitude must be between -90 and 90.", kind: "error" });
     if (Number.isNaN(lngN) || lngN < -180 || lngN > 180)
-      return setStatus({ msg: "Longitude must be between -180 and 180.", kind: "error" });
+      return setStatus({
+        msg: "Longitude must be between -180 and 180.",
+        kind: "error",
+      });
     if (!description.trim())
       return setStatus({ msg: "Please add a short description.", kind: "error" });
 
@@ -283,7 +307,10 @@ function CoastWatch() {
     const next = [...reports, newReport];
     setReports(next);
     saveReports(next);
-    leafletMap.current?.setView([latN, lngN], Math.max(leafletMap.current.getZoom(), 13));
+    leafletMap.current?.setView(
+      [latN, lngN],
+      Math.max(leafletMap.current.getZoom(), 13),
+    );
     setStatus({ msg: "Report submitted! Thank you 🌊", kind: "success" });
     resetForm();
     setTimeout(() => setModalOpen(false), 700);
@@ -291,7 +318,6 @@ function CoastWatch() {
 
   return (
     <div className="cw">
-      {/* Navbar */}
       <header className="cw-nav">
         <div className="cw-brand">
           <span className="cw-wave">🌊</span> CoastWatch
@@ -299,7 +325,13 @@ function CoastWatch() {
         <nav className="cw-nav-links">
           <a href="#dashboard">Dashboard</a>
           <a href="#map-section">Map</a>
-          <a href="#report" onClick={(e) => { e.preventDefault(); setModalOpen(true); }}>
+          <a
+            href="#report"
+            onClick={(e) => {
+              e.preventDefault();
+              setModalOpen(true);
+            }}
+          >
             Report
           </a>
         </nav>
@@ -308,7 +340,6 @@ function CoastWatch() {
         </button>
       </header>
 
-      {/* Hero */}
       <section className="cw-hero">
         <div>
           <h1>
@@ -317,14 +348,15 @@ function CoastWatch() {
             <span className="cw-accent">one report at a time.</span>
           </h1>
           <p>
-            Spot plastic, debris, or pollution on your local beach? Drop a pin, snap a
+            Spot plastic, debris, or pollution on your local beach? Drop a pin, add a
             description, and help your community keep our coasts clean.
           </p>
         </div>
-        <div className="cw-hero-wave" aria-hidden="true">🌊</div>
+        <div className="cw-hero-wave" aria-hidden="true">
+          🌊
+        </div>
       </section>
 
-      {/* Dashboard */}
       <section id="dashboard" className="cw-impact-grid">
         <StatCard color="blue" icon="🚩" value={total} label="Total Reports" />
         <StatCard color="teal" icon="♻️" value={plastic} label="Plastic Reports" />
@@ -332,34 +364,42 @@ function CoastWatch() {
         <StatCard color="deep" icon="⏱" value={latest} label="Most Recent Report" />
       </section>
 
-      {/* Map */}
       <section id="map-section" className="cw-map-section">
         <div className="cw-section-header">
           <h2>🗺 Community Pollution Map</h2>
-          <p>Every pin is a real report from your community. Click any pin for details, or click the map to drop a new one.</p>
+          <p>
+            Every pin is a real report from your community. Click any pin for details,
+            or click the map to drop a new one.
+          </p>
         </div>
         <div ref={mapRef} className="cw-map" role="application" aria-label="Pollution map" />
       </section>
 
       <footer className="cw-footer">
-        🌊 CoastWatch — built for the Congressional App Challenge. Data stored locally in your browser.
+        🌊 CoastWatch — built for the Congressional App Challenge. Data stored locally in
+        your browser.
       </footer>
 
-      {/* Modal */}
       {modalOpen && (
         <div className="cw-modal" role="dialog" aria-modal="true">
           <div className="cw-modal-backdrop" onClick={() => setModalOpen(false)} />
           <div className="cw-modal-panel">
             <header className="cw-modal-header">
               <h2>📝 Submit a Pollution Report</h2>
-              <button className="cw-icon-btn" onClick={() => setModalOpen(false)} aria-label="Close">
+              <button
+                className="cw-icon-btn"
+                onClick={() => setModalOpen(false)}
+                aria-label="Close"
+              >
                 ✕
               </button>
             </header>
 
             <form className="cw-form" onSubmit={handleSubmit} noValidate>
               <label>
-                <span>Reporter name <small>(optional)</small></span>
+                <span>
+                  Reporter name <small>(optional)</small>
+                </span>
                 <input
                   type="text"
                   value={reporter}
@@ -438,7 +478,11 @@ function CoastWatch() {
               </p>
 
               <div className="cw-modal-actions">
-                <button type="button" className="cw-btn cw-btn-muted" onClick={() => setModalOpen(false)}>
+                <button
+                  type="button"
+                  className="cw-btn cw-btn-muted"
+                  onClick={() => setModalOpen(false)}
+                >
                   Cancel
                 </button>
                 <button type="submit" className="cw-btn cw-btn-primary">
