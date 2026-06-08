@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { submitReport } from "@/lib/reports.functions";
+import { fetchAirNow } from "@/lib/airnow.functions";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type L = any;
@@ -64,7 +65,7 @@ type LayerMeta = {
 const LAYERS: LayerMeta[] = [
   { key: "reports",         name: "Community pollution reports", source: "CoastWatch (verified user reports)",                        color: "#dc2626", defaultOn: true  },
   { key: "beachGrades",     name: "Beach water-quality grades",   source: "Heal the Bay Beach Report Card",                            color: "#059669", defaultOn: true  },
-  { key: "airQuality",      name: "PM2.5 air quality",            source: "OpenAQ (real-time, no key)",                                color: "#a855f7", defaultOn: false },
+  { key: "airQuality",      name: "Air quality (AQI, live)",      source: "EPA AirNow · PM2.5 + Ozone",                                color: "#ff7e00", defaultOn: true  },
   { key: "safeToSwim",      name: "Safe to Swim monitoring sites",source: "CA Water Quality Monitoring Council",                       color: "#0891b2", defaultOn: false },
   { key: "calEnviroScreen", name: "CalEnviroScreen burden score", source: "OEHHA CalEnviroScreen 4.0",                                 color: "#d97706", defaultOn: false },
   { key: "calEPASites",     name: "CalEPA regulated sites",       source: "CalEPA Regulated Site Portal",                              color: "#475569", defaultOn: false },
@@ -186,6 +187,7 @@ function CoastWatch() {
   }, [enabled]);
 
   // ---- Lazy-load each overlay when first enabled ----
+  const airNowFn = useServerFn(fetchAirNow);
   const loaded = useRef<Set<LayerKey>>(new Set(["reports"]));
   useEffect(() => {
     if (!ready.current) return;
@@ -193,13 +195,13 @@ function CoastWatch() {
       if (!enabled[k] || loaded.current.has(k)) return;
       loaded.current.add(k);
       try {
-        await fetchOverlay(k, layerGroups.current[k]!);
+        await fetchOverlay(k, layerGroups.current[k]!, { airNow: airNowFn });
       } catch (e) {
         console.warn(`Layer ${k} failed to load`, e);
-        loaded.current.delete(k); // allow retry
+        loaded.current.delete(k);
       }
     });
-  }, [enabled]);
+  }, [enabled, airNowFn]);
 
   // ---- Submit handler ----
   async function onSubmit(e: React.FormEvent) {
@@ -366,10 +368,42 @@ function CoastWatch() {
         <main className="cw-main">
           <div ref={mapEl} className="cw-map" />
           <div className="cw-legend">
-            <h5>Pollution severity</h5>
-            <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#059669" }} /> Low (1–2)</div>
-            <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#d97706" }} /> Moderate (3)</div>
-            <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#dc2626" }} /> High (4–5)</div>
+            <div className="cw-legend-group">
+              <h5>Pollution reports</h5>
+              <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#059669" }} /> Low severity (1–2)</div>
+              <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#d97706" }} /> Moderate (3)</div>
+              <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#dc2626" }} /> High (4–5)</div>
+            </div>
+            {enabled.airQuality && (
+              <div className="cw-legend-group">
+                <h5>Air quality index (AirNow)</h5>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#00e400" }} /> Good 0–50</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#ffff00" }} /> Moderate 51–100</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#ff7e00" }} /> USG 101–150</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#ff0000" }} /> Unhealthy 151–200</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#8f3f97" }} /> Very Unhealthy 201+</div>
+              </div>
+            )}
+            {enabled.beachGrades && (
+              <div className="cw-legend-group">
+                <h5>Beach water grade (Heal the Bay)</h5>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#059669" }} /> A</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#65a30d" }} /> B</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#eab308" }} /> C</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#ea580c" }} /> D</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#dc2626" }} /> F</div>
+              </div>
+            )}
+            {enabled.calEnviroScreen && (
+              <div className="cw-legend-group">
+                <h5>CalEnviroScreen percentile</h5>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#bbf7d0" }} /> 0–25</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#facc15" }} /> 25–50</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#d97706" }} /> 50–75</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#dc2626" }} /> 75–90</div>
+                <div className="cw-legend-row"><span className="cw-swatch" style={{ background: "#7f1d1d" }} /> 90+</div>
+              </div>
+            )}
           </div>
         </main>
 
@@ -443,7 +477,7 @@ function CoastWatch() {
           <div className="cw-attribution">
             Data:&nbsp;
             <a href="https://beachreportcard.org" target="_blank" rel="noreferrer">Heal the Bay</a>
-            <a href="https://openaq.org" target="_blank" rel="noreferrer">OpenAQ</a>
+            <a href="https://www.airnow.gov" target="_blank" rel="noreferrer">EPA AirNow</a>
             <a href="https://oehha.ca.gov/calenviroscreen" target="_blank" rel="noreferrer">CalEnviroScreen</a>
             <a href="https://siteportal.calepa.ca.gov" target="_blank" rel="noreferrer">CalEPA</a>
             <a href="https://mywaterquality.ca.gov" target="_blank" rel="noreferrer">CA Water Quality</a>
@@ -456,12 +490,14 @@ function CoastWatch() {
 }
 
 // ---------- Overlay fetchers ----------
-async function fetchOverlay(key: LayerKey, group: L) {
+type OverlayCtx = { airNow: () => Promise<{ error: string | null; observations: Array<{ lat: number; lng: number; parameter: string; aqi: number; category: string; site: string; agency: string; utc: string }> }> };
+
+async function fetchOverlay(key: LayerKey, group: L, ctx: OverlayCtx) {
   if (!window.L) return;
   const L = window.L;
   switch (key) {
     case "beachGrades":      return loadBeachGrades(L, group);
-    case "airQuality":       return loadAirQuality(L, group);
+    case "airQuality":       return loadAirQuality(L, group, ctx);
     case "safeToSwim":       return loadSafeToSwim(L, group);
     case "calEnviroScreen":  return loadCalEnviroScreen(L, group);
     case "calEPASites":      return loadCalEPASites(L, group);
@@ -503,27 +539,37 @@ function loadBeachGrades(L: L, group: L) {
   });
 }
 
-// OpenAQ — real-time PM2.5 measurements, free, no key required (CORS-enabled).
-async function loadAirQuality(L: L, group: L) {
-  const url = "https://api.openaq.org/v2/latest?parameter=pm25&limit=200&coordinates=33.8,-118.3&radius=100000";
+// EPA AirNow — real-time PM2.5 + Ozone via server fn (uses AIRNOW_API_KEY).
+async function loadAirQuality(L: L, group: L, ctx: OverlayCtx) {
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(String(res.status));
-    const data = await res.json() as { results?: { coordinates?: { latitude: number; longitude: number }; location: string; measurements: { parameter: string; value: number; unit: string; lastUpdated: string }[] }[] };
-    (data.results ?? []).forEach(r => {
-      const c = r.coordinates;
-      const pm = r.measurements.find(m => m.parameter === "pm25");
-      if (!c || !pm) return;
-      const v = pm.value;
-      const color = v > 55 ? "#7f1d1d" : v > 35 ? "#dc2626" : v > 12 ? "#d97706" : "#059669";
-      L.circleMarker([c.latitude, c.longitude], {
-        radius: 8, color: "#fff", weight: 1.5, fillColor: color, fillOpacity: 0.8,
+    const { observations, error } = await ctx.airNow();
+    if (error) console.warn("AirNow:", error);
+    const aqiColor = (aqi: number) =>
+      aqi > 300 ? "#7e0023" :
+      aqi > 200 ? "#8f3f97" :
+      aqi > 150 ? "#ff0000" :
+      aqi > 100 ? "#ff7e00" :
+      aqi > 50  ? "#ffff00" :
+                  "#00e400";
+    observations.forEach((o) => {
+      const c = aqiColor(o.aqi);
+      L.circleMarker([o.lat, o.lng], {
+        radius: o.parameter === "OZONE" ? 7 : 9,
+        color: "#0a1929", weight: 1, fillColor: c, fillOpacity: 0.85,
       })
-        .bindPopup(`<div class="popup-card"><h4>${escapeHtml(r.location)}</h4><div class="meta">PM2.5 · ${new Date(pm.lastUpdated).toLocaleString()}</div><div class="desc" style="font-size:1.2rem;font-weight:700;color:${color}">${v.toFixed(1)} ${pm.unit}</div></div>`)
+        .bindPopup(
+          `<div class="popup-card">
+            <h4>${escapeHtml(o.site)}</h4>
+            <div class="meta">${escapeHtml(o.agency)} &middot; ${new Date(o.utc + "Z").toLocaleString()}</div>
+            <div class="desc" style="font-size:1.2rem;font-weight:700;color:${c}">
+              ${o.parameter} AQI ${o.aqi} <span style="font-weight:500;font-size:.85rem;color:var(--slate-700)">(${escapeHtml(o.category)})</span>
+            </div>
+          </div>`
+        )
         .addTo(group);
     });
   } catch (e) {
-    console.warn("OpenAQ fetch failed", e);
+    console.warn("AirNow fetch failed", e);
   }
 }
 
