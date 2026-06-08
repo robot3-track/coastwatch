@@ -1,20 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import type * as LeafletNS from "leaflet";
 
-// Fix default marker icons (Vite doesn't resolve Leaflet's images automatically)
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
+// Leaflet is dynamically imported in useEffect to avoid SSR (window is undefined).
+type L = typeof LeafletNS;
 
-// @ts-expect-error - patching Leaflet defaults
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-});
 
 export const Route = createFileRoute("/")({
   head: () => ({
