@@ -14,7 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      reports: {
+        Row: {
+          ai_verdict: Json | null
+          created_at: string
+          debris_type: string
+          description: string
+          id: string
+          lat: number
+          lng: number
+          reporter: string | null
+          severity: number
+          status: string
+        }
+        Insert: {
+          ai_verdict?: Json | null
+          created_at?: string
+          debris_type: string
+          description: string
+          id?: string
+          lat: number
+          lng: number
+          reporter?: string | null
+          severity?: number
+          status?: string
+        }
+        Update: {
+          ai_verdict?: Json | null
+          created_at?: string
+          debris_type?: string
+          description?: string
+          id?: string
+          lat?: number
+          lng?: number
+          reporter?: string | null
+          severity?: number
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
