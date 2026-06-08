@@ -187,6 +187,7 @@ function CoastWatch() {
   }, [enabled]);
 
   // ---- Lazy-load each overlay when first enabled ----
+  const airNowFn = useServerFn(fetchAirNow);
   const loaded = useRef<Set<LayerKey>>(new Set(["reports"]));
   useEffect(() => {
     if (!ready.current) return;
@@ -194,13 +195,13 @@ function CoastWatch() {
       if (!enabled[k] || loaded.current.has(k)) return;
       loaded.current.add(k);
       try {
-        await fetchOverlay(k, layerGroups.current[k]!);
+        await fetchOverlay(k, layerGroups.current[k]!, { airNow: airNowFn });
       } catch (e) {
         console.warn(`Layer ${k} failed to load`, e);
-        loaded.current.delete(k); // allow retry
+        loaded.current.delete(k);
       }
     });
-  }, [enabled]);
+  }, [enabled, airNowFn]);
 
   // ---- Submit handler ----
   async function onSubmit(e: React.FormEvent) {
