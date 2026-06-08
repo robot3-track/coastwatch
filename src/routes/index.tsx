@@ -507,27 +507,37 @@ function loadBeachGrades(L: L, group: L) {
   });
 }
 
-// OpenAQ — real-time PM2.5 measurements, free, no key required (CORS-enabled).
-async function loadAirQuality(L: L, group: L) {
-  const url = "https://api.openaq.org/v2/latest?parameter=pm25&limit=200&coordinates=33.8,-118.3&radius=100000";
+// EPA AirNow — real-time PM2.5 + Ozone via server fn (uses AIRNOW_API_KEY).
+async function loadAirQuality(L: L, group: L, ctx: OverlayCtx) {
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(String(res.status));
-    const data = await res.json() as { results?: { coordinates?: { latitude: number; longitude: number }; location: string; measurements: { parameter: string; value: number; unit: string; lastUpdated: string }[] }[] };
-    (data.results ?? []).forEach(r => {
-      const c = r.coordinates;
-      const pm = r.measurements.find(m => m.parameter === "pm25");
-      if (!c || !pm) return;
-      const v = pm.value;
-      const color = v > 55 ? "#7f1d1d" : v > 35 ? "#dc2626" : v > 12 ? "#d97706" : "#059669";
-      L.circleMarker([c.latitude, c.longitude], {
-        radius: 8, color: "#fff", weight: 1.5, fillColor: color, fillOpacity: 0.8,
+    const { observations, error } = await ctx.airNow();
+    if (error) console.warn("AirNow:", error);
+    const aqiColor = (aqi: number) =>
+      aqi > 300 ? "#7e0023" :
+      aqi > 200 ? "#8f3f97" :
+      aqi > 150 ? "#ff0000" :
+      aqi > 100 ? "#ff7e00" :
+      aqi > 50  ? "#ffff00" :
+                  "#00e400";
+    observations.forEach((o) => {
+      const c = aqiColor(o.aqi);
+      L.circleMarker([o.lat, o.lng], {
+        radius: o.parameter === "OZONE" ? 7 : 9,
+        color: "#0a1929", weight: 1, fillColor: c, fillOpacity: 0.85,
       })
-        .bindPopup(`<div class="popup-card"><h4>${escapeHtml(r.location)}</h4><div class="meta">PM2.5 · ${new Date(pm.lastUpdated).toLocaleString()}</div><div class="desc" style="font-size:1.2rem;font-weight:700;color:${color}">${v.toFixed(1)} ${pm.unit}</div></div>`)
+        .bindPopup(
+          `<div class="popup-card">
+            <h4>${escapeHtml(o.site)}</h4>
+            <div class="meta">${escapeHtml(o.agency)} &middot; ${new Date(o.utc + "Z").toLocaleString()}</div>
+            <div class="desc" style="font-size:1.2rem;font-weight:700;color:${c}">
+              ${o.parameter} AQI ${o.aqi} <span style="font-weight:500;font-size:.85rem;color:var(--slate-700)">(${escapeHtml(o.category)})</span>
+            </div>
+          </div>`
+        )
         .addTo(group);
     });
   } catch (e) {
-    console.warn("OpenAQ fetch failed", e);
+    console.warn("AirNow fetch failed", e);
   }
 }
 
