@@ -65,7 +65,7 @@ type LayerMeta = {
 const LAYERS: LayerMeta[] = [
   { key: "reports",         name: "Community pollution reports", source: "CoastWatch (verified user reports)",                        color: "#dc2626", defaultOn: true  },
   { key: "beachGrades",     name: "Beach water-quality grades",   source: "Heal the Bay Beach Report Card",                            color: "#059669", defaultOn: true  },
-  { key: "airQuality",      name: "PM2.5 air quality",            source: "OpenAQ (real-time, no key)",                                color: "#a855f7", defaultOn: false },
+  { key: "airQuality",      name: "Air quality (AQI, live)",      source: "EPA AirNow · PM2.5 + Ozone",                                color: "#ff7e00", defaultOn: true  },
   { key: "safeToSwim",      name: "Safe to Swim monitoring sites",source: "CA Water Quality Monitoring Council",                       color: "#0891b2", defaultOn: false },
   { key: "calEnviroScreen", name: "CalEnviroScreen burden score", source: "OEHHA CalEnviroScreen 4.0",                                 color: "#d97706", defaultOn: false },
   { key: "calEPASites",     name: "CalEPA regulated sites",       source: "CalEPA Regulated Site Portal",                              color: "#475569", defaultOn: false },
