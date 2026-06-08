@@ -477,7 +477,7 @@ function CoastWatch() {
           <div className="cw-attribution">
             Data:&nbsp;
             <a href="https://beachreportcard.org" target="_blank" rel="noreferrer">Heal the Bay</a>
-            <a href="https://openaq.org" target="_blank" rel="noreferrer">OpenAQ</a>
+            <a href="https://www.airnow.gov" target="_blank" rel="noreferrer">EPA AirNow</a>
             <a href="https://oehha.ca.gov/calenviroscreen" target="_blank" rel="noreferrer">CalEnviroScreen</a>
             <a href="https://siteportal.calepa.ca.gov" target="_blank" rel="noreferrer">CalEPA</a>
             <a href="https://mywaterquality.ca.gov" target="_blank" rel="noreferrer">CA Water Quality</a>
