@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { submitReport } from "@/lib/reports.functions";
+import { fetchAirNow } from "@/lib/airnow.functions";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type L = any;
