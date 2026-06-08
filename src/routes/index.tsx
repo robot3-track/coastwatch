@@ -240,6 +240,32 @@ function CoastWatch() {
     }
   }
 
+  // Drop / move the red pin on the map, and sync form lat/lng.
+  const placeDropPin = useCallback((lat: number, lng: number) => {
+    setForm(f => ({ ...f, lat: lat.toFixed(5), lng: lng.toFixed(5) }));
+    if (!map.current || !window.L) return;
+    const L = window.L;
+    const icon = L.divIcon({
+      className: "cw-drop-pin",
+      html: `<svg width="32" height="42" viewBox="0 0 32 42" xmlns="http://www.w3.org/2000/svg"><path d="M16 1c8.3 0 15 6.6 15 14.7 0 11-15 25.3-15 25.3S1 26.7 1 15.7C1 7.6 7.7 1 16 1z" fill="#dc2626" stroke="#fff" stroke-width="2"/><circle cx="16" cy="15" r="5" fill="#fff"/></svg>`,
+      iconSize: [32, 42],
+      iconAnchor: [16, 41],
+      popupAnchor: [0, -36],
+    });
+    if (dropPin.current) {
+      dropPin.current.setLatLng([lat, lng]);
+    } else {
+      dropPin.current = L.marker([lat, lng], { icon, draggable: true, zIndexOffset: 1000 })
+        .addTo(map.current)
+        .bindPopup("Your selected report location.<br/>Drag to fine-tune.");
+      dropPin.current.on("dragend", () => {
+        const ll = dropPin.current.getLatLng();
+        setForm(f => ({ ...f, lat: ll.lat.toFixed(5), lng: ll.lng.toFixed(5) }));
+      });
+    }
+    dropPin.current.openPopup();
+  }, []);
+
   function locate() {
     if (!navigator.geolocation) {
       setStatus({ kind: "error", msg: "Geolocation not available." }); return;
@@ -247,7 +273,7 @@ function CoastWatch() {
     setStatus({ kind: "info", msg: "Requesting location…" });
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setForm(f => ({ ...f, lat: pos.coords.latitude.toFixed(5), lng: pos.coords.longitude.toFixed(5) }));
+        placeDropPin(pos.coords.latitude, pos.coords.longitude);
         if (map.current) map.current.setView([pos.coords.latitude, pos.coords.longitude], 14);
         setStatus({ kind: "success", msg: "Location captured." });
       },
