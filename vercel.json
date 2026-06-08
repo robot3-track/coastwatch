@@ -1,15 +1,15 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/node"
-    }
-  ],
+  "framework": null,
   "routes": [
     {
+      "src": "/_vercel/insights/(.*)",
+      "dest": "/_vercel/insights/$1"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/.output/server/index.mjs"
+      "dest": "/.output/server/index.mjs",
+      "check": true
     }
   ]
 }
