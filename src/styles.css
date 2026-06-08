@@ -191,10 +191,11 @@
 }
 .cw-brand { display: flex; align-items: center; gap: .6rem; font-weight: 700; letter-spacing: .02em; }
 .cw-brand-mark {
-  width: 28px; height: 28px; border-radius: 6px;
-  background: linear-gradient(135deg, var(--teal-600), #155e75);
-  display: grid; place-items: center; color: #fff; font-size: .85rem;
+  width: 36px; height: 36px; display: inline-grid; place-items: center;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.35));
 }
+.cw-brand-mark svg { display: block; }
+.cw-drop-pin { background: transparent !important; border: none !important; filter: drop-shadow(0 4px 6px rgba(0,0,0,.35)); }
 .cw-brand-name { font-family: "IBM Plex Serif", serif; font-size: 1.05rem; }
 .cw-brand-sub { color: #94a3b8; font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; margin-left: .5rem; }
 .cw-top-meta { display: flex; gap: 1.25rem; align-items: center; font-size: .82rem; color: #94a3b8; }
