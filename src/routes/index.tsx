@@ -115,9 +115,9 @@ function CoastWatch() {
         maxZoom: 19,
       }).addTo(map.current);
 
-      // Click to pre-fill form coordinates
+      // Click to drop a red pin and pre-fill form coordinates
       map.current.on("click", (e: { latlng: { lat: number; lng: number } }) => {
-        setForm(f => ({ ...f, lat: e.latlng.lat.toFixed(5), lng: e.latlng.lng.toFixed(5) }));
+        placeDropPin(e.latlng.lat, e.latlng.lng);
         setTab("report");
       });
 
