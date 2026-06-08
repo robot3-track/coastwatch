@@ -77,6 +77,7 @@ const DEFAULT_ZOOM = 11;
 function CoastWatch() {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const map = useRef<L | null>(null);
+  const dropPin = useRef<L | null>(null); // red draggable marker for the user's selected point
   const layerGroups = useRef<Record<LayerKey, L | null>>({
     reports: null, beachGrades: null, airQuality: null,
     calEnviroScreen: null, calEPASites: null, safeToSwim: null,
@@ -114,9 +115,9 @@ function CoastWatch() {
         maxZoom: 19,
       }).addTo(map.current);
 
-      // Click to pre-fill form coordinates
+      // Click to drop a red pin and pre-fill form coordinates
       map.current.on("click", (e: { latlng: { lat: number; lng: number } }) => {
-        setForm(f => ({ ...f, lat: e.latlng.lat.toFixed(5), lng: e.latlng.lng.toFixed(5) }));
+        placeDropPin(e.latlng.lat, e.latlng.lng);
         setTab("report");
       });
 
@@ -239,6 +240,32 @@ function CoastWatch() {
     }
   }
 
+  // Drop / move the red pin on the map, and sync form lat/lng.
+  const placeDropPin = useCallback((lat: number, lng: number) => {
+    setForm(f => ({ ...f, lat: lat.toFixed(5), lng: lng.toFixed(5) }));
+    if (!map.current || !window.L) return;
+    const L = window.L;
+    const icon = L.divIcon({
+      className: "cw-drop-pin",
+      html: `<svg width="32" height="42" viewBox="0 0 32 42" xmlns="http://www.w3.org/2000/svg"><path d="M16 1c8.3 0 15 6.6 15 14.7 0 11-15 25.3-15 25.3S1 26.7 1 15.7C1 7.6 7.7 1 16 1z" fill="#dc2626" stroke="#fff" stroke-width="2"/><circle cx="16" cy="15" r="5" fill="#fff"/></svg>`,
+      iconSize: [32, 42],
+      iconAnchor: [16, 41],
+      popupAnchor: [0, -36],
+    });
+    if (dropPin.current) {
+      dropPin.current.setLatLng([lat, lng]);
+    } else {
+      dropPin.current = L.marker([lat, lng], { icon, draggable: true, zIndexOffset: 1000 })
+        .addTo(map.current)
+        .bindPopup("Your selected report location.<br/>Drag to fine-tune.");
+      dropPin.current.on("dragend", () => {
+        const ll = dropPin.current.getLatLng();
+        setForm(f => ({ ...f, lat: ll.lat.toFixed(5), lng: ll.lng.toFixed(5) }));
+      });
+    }
+    dropPin.current.openPopup();
+  }, []);
+
   function locate() {
     if (!navigator.geolocation) {
       setStatus({ kind: "error", msg: "Geolocation not available." }); return;
@@ -246,7 +273,7 @@ function CoastWatch() {
     setStatus({ kind: "info", msg: "Requesting location…" });
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setForm(f => ({ ...f, lat: pos.coords.latitude.toFixed(5), lng: pos.coords.longitude.toFixed(5) }));
+        placeDropPin(pos.coords.latitude, pos.coords.longitude);
         if (map.current) map.current.setView([pos.coords.latitude, pos.coords.longitude], 14);
         setStatus({ kind: "success", msg: "Location captured." });
       },
@@ -269,7 +296,21 @@ function CoastWatch() {
       <div className="cw-shell">
         <header className="cw-topbar">
           <div className="cw-brand">
-            <div className="cw-brand-mark">CW</div>
+            <span className="cw-brand-mark" aria-hidden="true">
+              <svg width="36" height="36" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="cwGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#0ea5b7"/>
+                    <stop offset="100%" stopColor="#0a1929"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="20" cy="20" r="19" fill="url(#cwGrad)"/>
+                <path d="M4 25c3-2 5-2 8 0s5 2 8 0 5-2 8 0 5 2 8 0v6H4z" fill="#38bdf8" opacity=".9"/>
+                <path d="M4 21c3-2 5-2 8 0s5 2 8 0 5-2 8 0 5 2 8 0" fill="none" stroke="#e0f2fe" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M20 7c-3.6 0-6.5 2.8-6.5 6.4 0 4.8 6.5 10.6 6.5 10.6s6.5-5.8 6.5-10.6C26.5 9.8 23.6 7 20 7z" fill="#dc2626" stroke="#fff" strokeWidth="1.4"/>
+                <circle cx="20" cy="13.4" r="2.2" fill="#fff"/>
+              </svg>
+            </span>
             <div>
               <span className="cw-brand-name">CoastWatch</span>
               <span className="cw-brand-sub">California Coastal Monitor</span>
