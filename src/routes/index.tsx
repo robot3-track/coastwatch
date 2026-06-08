@@ -125,10 +125,12 @@ function formatRelative(date: Date) {
 // ---------- Component ----------
 function CoastWatch() {
   const mapRef = useRef<HTMLDivElement | null>(null);
-  const leafletMap = useRef<L.Map | null>(null);
-  const markerLayer = useRef<L.LayerGroup | null>(null);
+  const leafletMap = useRef<LeafletNS.Map | null>(null);
+  const markerLayer = useRef<LeafletNS.LayerGroup | null>(null);
+  const LRef = useRef<L | null>(null);
 
   const [reports, setReports] = useState<Report[]>([]);
+  const [mapReady, setMapReady] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [status, setStatus] = useState<{ msg: string; kind?: "error" | "success" }>({
     msg: "",
@@ -149,35 +151,66 @@ function CoastWatch() {
     if (!window.localStorage.getItem(STORAGE_KEY)) saveReports(initial);
   }, []);
 
-  // Initialize map once
+  // Initialize Leaflet (dynamic import to avoid SSR window references)
   useEffect(() => {
-    if (!mapRef.current || leafletMap.current) return;
-    const map = L.map(mapRef.current).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(map);
-    markerLayer.current = L.layerGroup().addTo(map);
-    map.on("click", (e: L.LeafletMouseEvent) => {
-      setLat(e.latlng.lat.toFixed(5));
-      setLng(e.latlng.lng.toFixed(5));
-      setModalOpen(true);
-      setStatus({ msg: "Coordinates set from map click. Fill in the rest!", kind: "success" });
-    });
-    leafletMap.current = map;
+    let cancelled = false;
+    (async () => {
+      const [{ default: L }, _css] = await Promise.all([
+        import("leaflet"),
+        import("leaflet/dist/leaflet.css"),
+      ]);
+      const [icon2x, icon, shadow] = await Promise.all([
+        import("leaflet/dist/images/marker-icon-2x.png"),
+        import("leaflet/dist/images/marker-icon.png"),
+        import("leaflet/dist/images/marker-shadow.png"),
+      ]);
+      // Patch default icon paths (Vite doesn't auto-resolve them).
+      // @ts-expect-error _getIconUrl is internal
+      delete L.Icon.Default.prototype._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: icon2x.default,
+        iconUrl: icon.default,
+        shadowUrl: shadow.default,
+      });
+
+      if (cancelled || !mapRef.current || leafletMap.current) return;
+      LRef.current = L;
+      const map = L.map(mapRef.current).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+      markerLayer.current = L.layerGroup().addTo(map);
+      map.on("click", (e: LeafletNS.LeafletMouseEvent) => {
+        setLat(e.latlng.lat.toFixed(5));
+        setLng(e.latlng.lng.toFixed(5));
+        setModalOpen(true);
+        setStatus({
+          msg: "Coordinates set from map click. Fill in the rest!",
+          kind: "success",
+        });
+      });
+      leafletMap.current = map;
+      setMapReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Re-render markers when reports change
+  // Re-render markers when reports change (after map is ready)
   useEffect(() => {
-    if (!markerLayer.current) return;
+    const L = LRef.current;
+    if (!L || !markerLayer.current) return;
     markerLayer.current.clearLayers();
     reports.forEach((r) => {
       L.marker([r.lat, r.lng])
         .addTo(markerLayer.current!)
         .bindPopup(popupHtml(r));
     });
-  }, [reports]);
+  }, [reports, mapReady]);
+
 
   // ESC closes modal
   useEffect(() => {
