@@ -296,7 +296,21 @@ function CoastWatch() {
       <div className="cw-shell">
         <header className="cw-topbar">
           <div className="cw-brand">
-            <div className="cw-brand-mark">CW</div>
+            <span className="cw-brand-mark" aria-hidden="true">
+              <svg width="36" height="36" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="cwGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#0ea5b7"/>
+                    <stop offset="100%" stopColor="#0a1929"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="20" cy="20" r="19" fill="url(#cwGrad)"/>
+                <path d="M4 25c3-2 5-2 8 0s5 2 8 0 5-2 8 0 5 2 8 0v6H4z" fill="#38bdf8" opacity=".9"/>
+                <path d="M4 21c3-2 5-2 8 0s5 2 8 0 5-2 8 0 5 2 8 0" fill="none" stroke="#e0f2fe" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M20 7c-3.6 0-6.5 2.8-6.5 6.4 0 4.8 6.5 10.6 6.5 10.6s6.5-5.8 6.5-10.6C26.5 9.8 23.6 7 20 7z" fill="#dc2626" stroke="#fff" strokeWidth="1.4"/>
+                <circle cx="20" cy="13.4" r="2.2" fill="#fff"/>
+              </svg>
+            </span>
             <div>
               <span className="cw-brand-name">CoastWatch</span>
               <span className="cw-brand-sub">California Coastal Monitor</span>
