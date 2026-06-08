@@ -77,6 +77,7 @@ const DEFAULT_ZOOM = 11;
 function CoastWatch() {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const map = useRef<L | null>(null);
+  const dropPin = useRef<L | null>(null); // red draggable marker for the user's selected point
   const layerGroups = useRef<Record<LayerKey, L | null>>({
     reports: null, beachGrades: null, airQuality: null,
     calEnviroScreen: null, calEPASites: null, safeToSwim: null,
