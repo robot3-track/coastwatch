@@ -458,12 +458,14 @@ function CoastWatch() {
 }
 
 // ---------- Overlay fetchers ----------
-async function fetchOverlay(key: LayerKey, group: L) {
+type OverlayCtx = { airNow: () => Promise<{ error: string | null; observations: Array<{ lat: number; lng: number; parameter: string; aqi: number; category: string; site: string; agency: string; utc: string }> }> };
+
+async function fetchOverlay(key: LayerKey, group: L, ctx: OverlayCtx) {
   if (!window.L) return;
   const L = window.L;
   switch (key) {
     case "beachGrades":      return loadBeachGrades(L, group);
-    case "airQuality":       return loadAirQuality(L, group);
+    case "airQuality":       return loadAirQuality(L, group, ctx);
     case "safeToSwim":       return loadSafeToSwim(L, group);
     case "calEnviroScreen":  return loadCalEnviroScreen(L, group);
     case "calEPASites":      return loadCalEPASites(L, group);
