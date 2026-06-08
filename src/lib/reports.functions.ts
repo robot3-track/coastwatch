@@ -127,7 +127,7 @@ export const submitReport = createServerFn({ method: "POST" })
         description: data.description,
         reporter: data.reporter ?? null,
         status,
-        ai_verdict: verdict,
+        ai_verdict: verdict as never,
       })
       .select("id, status")
       .single();
