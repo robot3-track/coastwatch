@@ -18,8 +18,6 @@ export default defineConfig({
     plugins: [
       nitro({
         preset: "vercel",
-        // Ensure server entry is processed correctly for Vercel Node.js functions
-        server: { entry: "server" },
       }),
     ],
   },
