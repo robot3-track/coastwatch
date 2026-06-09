@@ -14,6 +14,7 @@ export default defineConfig({
   },
   nitro: {
     preset: "vercel",
+    // @ts-expect-error defaultPreset is accepted at runtime but not in lovable's types
     defaultPreset: "vercel",
   },
 });
